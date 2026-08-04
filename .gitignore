@@ -16,8 +16,9 @@ Thumbs.db
 desktop.ini
 
 # Local scaffolding
-_probe.*
-_push.*
+_probe*
+_push*
+_clean*
 
 # Local tool config (contains machine-specific paths)
 .claude/

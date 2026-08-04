@@ -1,2 +1,0 @@
-=== CLEANUP PUSH === 
-rm '.claude/settings.local.json'
