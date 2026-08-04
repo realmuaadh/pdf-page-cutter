@@ -1,0 +1,20 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+
+# PyInstaller intermediate build files (dist/ and installer_output/ are kept
+# deliberately so people can grab a working binary straight from the repo)
+build/
+
+# Editor / OS
+.vscode/
+.idea/
+Thumbs.db
+desktop.ini
+
+# Local scaffolding
+_probe.*
+_push.*

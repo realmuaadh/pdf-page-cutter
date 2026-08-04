@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pip --version)",
+      "PowerShell(python --version; python -m pip --version)",
+      "PowerShell(python -m pip install pypdf pyinstaller --quiet 2>&1 | Select-Object -Last 10)",
+      "PowerShell(Start-Process explorer.exe \"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\\\\dist\")",
+      "PowerShell(winget *)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\" -Recurse -File | Select-Object @{n=\"File\";e={$_.FullName.Replace\\(\"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\\\\\",\"\"\\)}}, @{n=\"Size \\(KB\\)\";e={[math]::Round\\($_.Length/1KB,1\\)}} | Sort-Object File)",
+      "PowerShell(Get-ChildItem \"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\" -Recurse -File | ForEach-Object { [PSCustomObject]@{ Path = $_.FullName.Replace\\(\"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\\\\\",\"\"\\); Size = [math]::Round\\($_.Length/1KB,1\\) } } | Format-Table -AutoSize)",
+      "PowerShell(Start-Process explorer.exe \"C:\\\\Users\\\\MOBPC SOHAR\\\\Documents\\\\playground\\\\pdf_cutter_app\\\\installer_output\")"
+    ]
+  }
+}
