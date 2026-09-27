@@ -1,6 +1,6 @@
 # PDF Page Cutter · قاطع صفحات PDF
 
-A small Windows desktop app that extracts a range of pages from a PDF — and, when you need it, cuts **partway into** the first and last page, permanently deleting the content you didn't select.
+A small desktop app for Windows and macOS that extracts a range of pages from a PDF — and, when you need it, cuts **partway into** the first and last page, permanently deleting the content you didn't select.
 
 Bilingual interface: **English** and **العربية**, with a proper right-to-left layout.
 
@@ -37,7 +37,7 @@ This app lets you drag a cut line onto a preview of the first and last page and 
 
 ## Install
 
-### Option 1 — Installer (easiest)
+### Windows — Installer (easiest)
 
 1. Download `PDFPageCutter_Setup.exe` from the [Releases](../../releases) page.
 2. Run it and follow the prompts.
@@ -45,18 +45,25 @@ This app lets you drag a cut line onto a preview of the first and last page and 
 
 The app then appears in the Start Menu, optionally on your Desktop, and can be removed from **Settings → Apps**.
 
-### Option 2 — Run from source
+### macOS — DMG (easiest)
 
-Requires **Python 3.10 or newer**.
+1. Download `PDFPageCutter_Mac.dmg` from the [Releases](../../releases) page.
+2. Open it and drag **PDF Page Cutter** into **Applications**.
+3. The first time you open it, macOS will say it's from an unidentified developer (the app isn't signed with a paid Apple Developer ID). Right-click the app → **Open** → **Open** again to confirm once; after that it launches normally.
+
+### Run from source (any OS)
+
+Requires **Python 3.10 or newer**, built with Tkinter support.
 
 ```bash
-git clone https://github.com/USERNAME/pdf-page-cutter.git
+git clone https://github.com/realmuaadh/pdf-page-cutter.git
 cd pdf-page-cutter
 pip install pypdf pypdfium2 Pillow PyMuPDF
 python pdf_cutter.py
 ```
 
-On Windows you can simply double-click **`run.bat`**, which installs anything missing and launches the app.
+- On Windows, double-click **`run.bat`**, which installs anything missing and launches the app.
+- On macOS/Linux, run **`./run.sh`** instead. On macOS, Apple's built-in Python doesn't ship Tkinter — if `run.sh` complains it's missing, install a Python that has it with `brew install python-tk` (matched to the `python3` you're using, e.g. `python-tk@3.11`).
 
 **What each dependency does**
 
@@ -97,6 +104,8 @@ This was verified by extracting text from the output with three independent engi
 
 ## Build from source
 
+### Windows
+
 ```bash
 pip install pypdf pypdfium2 Pillow PyMuPDF pyinstaller
 
@@ -107,7 +116,15 @@ python -m PyInstaller "PDF Page Cutter.spec"
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" installer.iss
 ```
 
-Outputs land in `dist\` and `installer_output\`.
+Outputs land in `dist\` and `installer_output\`. Or just run `build.bat`, which does all of the above.
+
+### macOS
+
+```bash
+./build_mac.sh
+```
+
+Builds `pdf_cutter.icns`, then `dist/PDF Page Cutter.app` and `installer_output/PDFPageCutter_Mac.dmg`. Needs the Xcode Command Line Tools (for `iconutil`) — install with `xcode-select --install` if you don't already have them.
 
 ---
 
@@ -115,13 +132,15 @@ Outputs land in `dist\` and `installer_output\`.
 
 ```
 pdf_cutter.py             Main application
-run.bat                   Install dependencies and launch
-PDF Page Cutter.spec      PyInstaller build definition
-installer.iss             Inno Setup installer script
-make_icon.py              Icon generator
+run.bat / run.sh          Install dependencies and launch (Windows / macOS+Linux)
+build.bat / build_mac.sh  Build the executable and installer (Windows / macOS)
+PDF Page Cutter.spec      PyInstaller build definition (both platforms)
+installer.iss             Inno Setup installer script (Windows)
+make_icon.py              Windows .ico icon generator
+make_icon_mac.py          macOS .icns icon generator
 docs/                     Screenshots and a sample PDF
-dist/                     Built executable
-installer_output/         Built installer
+dist/                     Built executable / app bundle
+installer_output/         Built installer (.exe / .dmg)
 ```
 
 ---

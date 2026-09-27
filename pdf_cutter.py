@@ -2,8 +2,17 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 import io
 import os
+import sys
 import json
+import subprocess
 from pypdf import PdfReader, PdfWriter
+
+IS_MAC = sys.platform == "darwin"
+IS_WIN = sys.platform == "win32"
+
+# Windows ships "Segoe UI"; macOS doesn't have it and falls back to a serif
+# font if we ask for it, so pick the right family for each platform.
+FONT_FAMILY = "Segoe UI" if IS_WIN else "Helvetica Neue"
 
 # Optional: page thumbnails for the visual cut preview. The app still works
 # (numeric entry only) if these are not installed.
@@ -71,8 +80,25 @@ def redact_bands(data, specs):
         doc.close()
 
 # ── Config persistence ──────────────────────────────────────────────────────
-CONFIG_DIR  = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "PDFPageCutter")
+if IS_WIN:
+    CONFIG_DIR = os.path.join(os.environ.get("APPDATA", os.path.expanduser("~")), "PDFPageCutter")
+elif IS_MAC:
+    CONFIG_DIR = os.path.join(os.path.expanduser("~/Library/Application Support"), "PDFPageCutter")
+else:
+    CONFIG_DIR = os.path.join(os.environ.get("XDG_CONFIG_HOME", os.path.expanduser("~/.config")), "PDFPageCutter")
 CONFIG_FILE = os.path.join(CONFIG_DIR, "settings.json")
+
+def open_in_file_manager(path):
+    """Reveal `path` in Explorer/Finder/the desktop file manager."""
+    try:
+        if IS_WIN:
+            os.startfile(path)
+        elif IS_MAC:
+            subprocess.run(["open", path], check=False)
+        else:
+            subprocess.run(["xdg-open", path], check=False)
+    except Exception:
+        pass
 
 def load_config():
     try:
@@ -179,6 +205,30 @@ T = {
 LANG_NAMES = {"en": "English", "ar": "العربية"}
 
 
+# ── Cross-platform colored button ───────────────────────────────────────────
+def make_button(parent, text, command, bg, fg, font,
+                 activebackground=None, relief="flat", padx=10, pady=4):
+    """A button that actually shows its bg/fg colors on every platform.
+
+    tk.Button honors bg/fg on Windows, but macOS's native Aqua theme
+    overrides them on a real Button (you'd get an unreadable white-on-white
+    label). So on macOS we fake the button with a Label plus click/hover
+    bindings instead, which macOS renders with whatever colors we give it.
+    """
+    active_bg = activebackground or bg
+    if not IS_MAC:
+        return tk.Button(parent, text=text, command=command, font=font,
+                          bg=bg, fg=fg, activebackground=active_bg,
+                          relief=relief, padx=padx, pady=pady)
+
+    btn = tk.Label(parent, text=text, font=font, bg=bg, fg=fg,
+                   padx=padx, pady=pady, cursor="pointinghand")
+    btn.bind("<Enter>", lambda e: btn.config(bg=active_bg))
+    btn.bind("<Leave>", lambda e: btn.config(bg=bg))
+    btn.bind("<Button-1>", lambda e: command())
+    return btn
+
+
 # ── Language chooser ────────────────────────────────────────────────────────
 def choose_language(saved=None):
     """Show a compact language-picker dialog; return 'en' or 'ar'."""
@@ -198,17 +248,17 @@ def choose_language(saved=None):
     hdr.pack(fill="x")
     hdr.pack_propagate(False)
     tk.Label(hdr, text="PDF Page Cutter",
-             font=("Segoe UI", 13, "bold"), bg="#2563eb", fg="white").pack(pady=12)
+             font=(FONT_FAMILY, 13, "bold"), bg="#2563eb", fg="white").pack(pady=12)
 
     body = tk.Frame(win, bg="white", padx=30, pady=20)
     body.pack(fill="both")
 
     tk.Label(body, text="Choose Language / اختر اللغة",
-             font=("Segoe UI", 10), bg="white", fg="#374151").pack(pady=(0, 14))
+             font=(FONT_FAMILY, 10), bg="white", fg="#374151").pack(pady=(0, 14))
 
     for code, name in LANG_NAMES.items():
         rb = tk.Radiobutton(body, text=name, variable=chosen, value=code,
-                            font=("Segoe UI", 11), bg="white",
+                            font=(FONT_FAMILY, 11), bg="white",
                             activebackground="white", fg="#1f2937",
                             selectcolor="#dbeafe")
         rb.pack(anchor="w", pady=3)
@@ -218,10 +268,10 @@ def choose_language(saved=None):
         win.destroy()
         dlg.destroy()
 
-    tk.Button(body, text="OK / موافق", command=confirm,
-              font=("Segoe UI", 10, "bold"), bg="#2563eb", fg="white",
-              activebackground="#1d4ed8", relief="flat",
-              padx=18, pady=6).pack(pady=(16, 0))
+    make_button(body, "OK / موافق", confirm,
+                font=(FONT_FAMILY, 10, "bold"), bg="#2563eb", fg="white",
+                activebackground="#1d4ed8",
+                padx=18, pady=6).pack(pady=(16, 0))
 
     # Center on screen
     win.update_idletasks()
@@ -259,7 +309,7 @@ class CutPreview(tk.Frame):
         self._index = 0
 
         tk.Label(self, text=strings["cut_first"] if mode == "start" else strings["cut_last"],
-                 font=("Segoe UI", 8, "bold"), bg="white", fg="#374151").pack()
+                 font=(FONT_FAMILY, 8, "bold"), bg="white", fg="#374151").pack()
 
         self.canvas = tk.Canvas(self, width=box_w + 2 * self.PAD,
                                 height=box_h + 2 * self.PAD,
@@ -271,9 +321,9 @@ class CutPreview(tk.Frame):
         entry_row = tk.Frame(self, bg="white")
         entry_row.pack()
         tk.Spinbox(entry_row, textvariable=var, from_=0, to=100, increment=1,
-                   width=5, font=("Segoe UI", 9), relief="solid", bd=1,
+                   width=5, font=(FONT_FAMILY, 9), relief="solid", bd=1,
                    command=self.redraw).pack(side="left")
-        tk.Label(entry_row, text="%", font=("Segoe UI", 9),
+        tk.Label(entry_row, text="%", font=(FONT_FAMILY, 9),
                  bg="white", fg="#6b7280").pack(side="left", padx=(3, 0))
 
         # Keep the trace so it can be detached when the widget is rebuilt
@@ -362,7 +412,7 @@ class CutPreview(tk.Frame):
             c.create_rectangle(x0, y0, x1, y1, fill="#f9fafb", outline="")
             msg = self.s["cut_pick_pdf"] if PREVIEW_OK else self.s["cut_nopreview"]
             c.create_text((x0 + x1) / 2, (y0 + y1) / 2, text=msg,
-                          font=("Segoe UI", 8), fill="#9ca3af",
+                          font=(FONT_FAMILY, 8), fill="#9ca3af",
                           width=self.box_w - 12, justify="center")
 
         y = y0 + self.img_h * self._pct() / 100.0
@@ -455,7 +505,7 @@ class PDFCutterApp:
         header.pack(fill="x")
         header.pack_propagate(False)
         tk.Label(header, text=s["header"],
-                 font=("Segoe UI", 16, "bold"),
+                 font=(FONT_FAMILY, 16, "bold"),
                  bg="#2563eb", fg="white").pack(
                      side=self._pack_side(), padx=20, pady=12)
 
@@ -469,7 +519,7 @@ class PDFCutterApp:
 
         def sec(parent, text):
             tk.Label(parent, text=text,
-                     font=("Segoe UI", 9, "bold"),
+                     font=(FONT_FAMILY, 9, "bold"),
                      bg="white", fg="#6b7280",
                      anchor=self._anchor(),
                      justify=self._justify()).pack(
@@ -497,17 +547,17 @@ class PDFCutterApp:
         # ── Input PDF ─────────────────────────────────────────────────────────
         sec(top_area, s["sec_input"])
         r1 = row(top_area)
-        tk.Button(r1, text=s["browse"], command=self._pick_pdf,
-                  font=("Segoe UI", 9), bg="#2563eb", fg="white",
-                  activebackground="#1d4ed8", relief="flat",
-                  padx=10).pack(side=secondary, padx=(0, 6) if not rtl else (6, 0))
+        make_button(r1, s["browse"], self._pick_pdf,
+                    font=(FONT_FAMILY, 9), bg="#2563eb", fg="white",
+                    activebackground="#1d4ed8",
+                    padx=10).pack(side=secondary, padx=(0, 6) if not rtl else (6, 0))
         tk.Entry(r1, textvariable=self.pdf_path,
-                 font=("Segoe UI", 10), state="readonly",
+                 font=(FONT_FAMILY, 10), state="readonly",
                  width=42, relief="solid", bd=1,
                  justify=self._justify()).pack(side=primary, fill="x")
 
         self.pages_label = tk.Label(top_area, text=s["no_file"],
-                                    font=("Segoe UI", 9), bg="white", fg="#9ca3af",
+                                    font=(FONT_FAMILY, 9), bg="white", fg="#9ca3af",
                                     anchor=self._anchor())
         self.pages_label.pack(fill="x", padx=16)
 
@@ -516,26 +566,26 @@ class PDFCutterApp:
         r2 = row(top_area)
         if not rtl:
             tk.Label(r2, text=s["from_lbl"],
-                     font=("Segoe UI", 10), bg="white").pack(side="left")
+                     font=(FONT_FAMILY, 10), bg="white").pack(side="left")
             tk.Spinbox(r2, textvariable=self.start_page, from_=1, to=9999,
-                       width=6, font=("Segoe UI", 10),
+                       width=6, font=(FONT_FAMILY, 10),
                        relief="solid", bd=1).pack(side="left", padx=(6, 16))
             tk.Label(r2, text=s["to_lbl"],
-                     font=("Segoe UI", 10), bg="white").pack(side="left")
+                     font=(FONT_FAMILY, 10), bg="white").pack(side="left")
             tk.Spinbox(r2, textvariable=self.end_page, from_=1, to=9999,
-                       width=6, font=("Segoe UI", 10),
+                       width=6, font=(FONT_FAMILY, 10),
                        relief="solid", bd=1).pack(side="left", padx=(6, 0))
         else:
             tk.Spinbox(r2, textvariable=self.end_page, from_=1, to=9999,
-                       width=6, font=("Segoe UI", 10),
+                       width=6, font=(FONT_FAMILY, 10),
                        relief="solid", bd=1).pack(side="right")
             tk.Label(r2, text=s["to_lbl"],
-                     font=("Segoe UI", 10), bg="white").pack(side="right", padx=(16, 6))
+                     font=(FONT_FAMILY, 10), bg="white").pack(side="right", padx=(16, 6))
             tk.Spinbox(r2, textvariable=self.start_page, from_=1, to=9999,
-                       width=6, font=("Segoe UI", 10),
+                       width=6, font=(FONT_FAMILY, 10),
                        relief="solid", bd=1).pack(side="right")
             tk.Label(r2, text=s["from_lbl"],
-                     font=("Segoe UI", 10), bg="white").pack(side="right", padx=(0, 6))
+                     font=(FONT_FAMILY, 10), bg="white").pack(side="right", padx=(0, 6))
 
         # ── Partial page cut ──────────────────────────────────────────────────
         sec(mid_area, s["sec_cut"])
@@ -557,23 +607,23 @@ class PDFCutterApp:
 
         hint_row = tk.Frame(mid_area, bg="white")
         hint_row.pack(fill="x", padx=16, pady=(2, 0))
-        tk.Button(hint_row, text=s["cut_reset"], command=self._reset_cut,
-                  font=("Segoe UI", 8), bg="#e5e7eb", fg="#374151",
-                  activebackground="#d1d5db", relief="flat",
-                  padx=8).pack(side=secondary)
-        tk.Label(hint_row, text=s["cut_hint"], font=("Segoe UI", 8),
+        make_button(hint_row, s["cut_reset"], self._reset_cut,
+                    font=(FONT_FAMILY, 8), bg="#e5e7eb", fg="#374151",
+                    activebackground="#d1d5db",
+                    padx=8).pack(side=secondary)
+        tk.Label(hint_row, text=s["cut_hint"], font=(FONT_FAMILY, 8),
                  bg="white", fg="#9ca3af",
                  anchor=self._anchor()).pack(side=primary, fill="x")
 
         # ── Output folder ─────────────────────────────────────────────────────
         sec(bottom_area, s["sec_folder"])
         r3 = row(bottom_area)
-        tk.Button(r3, text=s["browse"], command=self._pick_dir,
-                  font=("Segoe UI", 9), bg="#2563eb", fg="white",
-                  activebackground="#1d4ed8", relief="flat",
-                  padx=10).pack(side=secondary, padx=(0, 6) if not rtl else (6, 0))
+        make_button(r3, s["browse"], self._pick_dir,
+                    font=(FONT_FAMILY, 9), bg="#2563eb", fg="white",
+                    activebackground="#1d4ed8",
+                    padx=10).pack(side=secondary, padx=(0, 6) if not rtl else (6, 0))
         tk.Entry(r3, textvariable=self.output_dir,
-                 font=("Segoe UI", 10), state="readonly",
+                 font=(FONT_FAMILY, 10), state="readonly",
                  width=42, relief="solid", bd=1,
                  justify=self._justify()).pack(side=primary, fill="x")
 
@@ -582,17 +632,17 @@ class PDFCutterApp:
         r4 = row(bottom_area)
         if not rtl:
             tk.Entry(r4, textvariable=self.output_name,
-                     font=("Segoe UI", 10), width=38,
+                     font=(FONT_FAMILY, 10), width=38,
                      relief="solid", bd=1).pack(side="left")
             tk.Label(r4, text=s["dot_pdf"],
-                     font=("Segoe UI", 10), bg="white",
+                     font=(FONT_FAMILY, 10), bg="white",
                      fg="#6b7280").pack(side="left", padx=(4, 0))
         else:
             tk.Label(r4, text=s["dot_pdf"],
-                     font=("Segoe UI", 10), bg="white",
+                     font=(FONT_FAMILY, 10), bg="white",
                      fg="#6b7280").pack(side="right")
             tk.Entry(r4, textvariable=self.output_name,
-                     font=("Segoe UI", 10), width=38,
+                     font=(FONT_FAMILY, 10), width=38,
                      relief="solid", bd=1,
                      justify=tk.RIGHT).pack(side="right", padx=(0, 4))
 
@@ -603,16 +653,15 @@ class PDFCutterApp:
         btn_row.pack(fill="x", padx=16, pady=12)
 
         self.status_label = tk.Label(btn_row, text="",
-                                     font=("Segoe UI", 9), bg="white", fg="#16a34a",
+                                     font=(FONT_FAMILY, 9), bg="white", fg="#16a34a",
                                      anchor=self._anchor())
         self.status_label.pack(side=primary, fill="x", expand=True)
 
-        tk.Button(btn_row, text=s["save_btn"],
-                  command=self._save_pages,
-                  font=("Segoe UI", 11, "bold"),
-                  bg="#16a34a", fg="white",
-                  activebackground="#15803d",
-                  relief="flat", padx=12, pady=6).pack(side=secondary)
+        make_button(btn_row, s["save_btn"], self._save_pages,
+                    font=(FONT_FAMILY, 11, "bold"),
+                    bg="#16a34a", fg="white",
+                    activebackground="#15803d",
+                    padx=12, pady=6).pack(side=secondary)
 
         self._schedule_fit()
 
@@ -835,7 +884,7 @@ class PDFCutterApp:
         self.status_label.config(text=s["status_saved"].format(count=count))
         if messagebox.askyesno(s["done_title"],
                                s["done_msg"].format(count=count, path=out_path)):
-            os.startfile(out_dir)
+            open_in_file_manager(out_dir)
 
 
 # ── Entry point ──────────────────────────────────────────────────────────────
