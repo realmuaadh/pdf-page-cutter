@@ -4,10 +4,16 @@ __pycache__/
 *.egg-info/
 .venv/
 venv/
+.venv-mac/
 
 # PyInstaller intermediate build files (dist/ and installer_output/ are kept
 # deliberately so people can grab a working binary straight from the repo)
 build/
+
+# The unpacked macOS .app is a build intermediate too (hundreds of framework
+# files); the compressed installer_output/*.dmg is the one kept in the repo.
+dist/*.app/
+pdf_cutter.iconset/
 
 # Editor / OS
 .vscode/
